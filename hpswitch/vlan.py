@@ -203,7 +203,8 @@ class VLAN(object):
     def _set_port_tagged_status(self, port, status):
         dot1qVlanStaticEgressPorts = self.switch.snmp_get(("dot1qVlanStaticEgressPorts", self.vid))
         new_port_list = VLAN._set_port_list_port_status(dot1qVlanStaticEgressPorts, port, status)
-        self.switch.snmp_set((("dot1qVlanStaticEgressPorts", self.vid), rfc1902.OctetString(new_port_list)))
+        if dot1qVlanStaticEgressPorts != new_port_list:
+            self.switch.snmp_set((("dot1qVlanStaticEgressPorts", self.vid), rfc1902.OctetString(new_port_list)))
 
     def add_tagged_port(self, port):
         """
@@ -234,10 +235,13 @@ class VLAN(object):
         # Add the port to the list of untagged ports for this VLAN
         dot1qVlanStaticUntaggedPorts = self.switch.snmp_get(("dot1qVlanStaticUntaggedPorts", self.vid))
         new_untagged_port_list = VLAN._set_port_list_port_status(dot1qVlanStaticUntaggedPorts, port, status)
-        self.switch.snmp_set((("dot1qVlanStaticUntaggedPorts", self.vid), rfc1902.OctetString(new_untagged_port_list)))
+        if dot1qVlanStaticUntaggedPorts != new_untagged_port_list:
+            self.switch.snmp_set((("dot1qVlanStaticUntaggedPorts", self.vid), rfc1902.OctetString(new_untagged_port_list)))
         # Only set the pvid if the port is being added to the VLAN
         if status == True:
-            self.switch.snmp_set((("dot1qPvid", port.base_port), rfc1902.Gauge32(self.vid)))
+            dot1qPvid = self.switch.snmp_get(("dot1qPvid", port.base_port))
+            if dot1qPvid != self.vid:
+                self.switch.snmp_set((("dot1qPvid", port.base_port), rfc1902.Gauge32(self.vid)))
             # Remove the port from the VLAN that it belonged to before
             if previous_untagged_vlan is not None and self != previous_untagged_vlan:
                 previous_untagged_vlan.remove_untagged_port(port)
