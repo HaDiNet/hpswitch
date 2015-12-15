@@ -8,6 +8,8 @@ from pysnmp.smi import builder, view
 
 import ipaddress
 
+from port import Port
+
 class Switch(object):
     """
     Represents a generic HP Networking switch.
@@ -116,6 +118,16 @@ class Switch(object):
         Remove the static IPv6 route `remove_route` from the switch configuration.
         """
         pass
+
+    def get_port_for_mac(self, mac):
+        """
+        Returns the port that a specified mac is learned on, or None if no such port exists.
+        """
+        oid = tuple(['dot1dTpFdbPort',] + [int(x, 16) for x in mac.split(":")])
+        portID = self.snmp_get(oid)
+
+        port = Port(self, base_port=int(portID))
+        return port
 
     def get_ports(self):
         """
