@@ -126,6 +126,9 @@ class Switch(object):
         oid = tuple(['dot1dTpFdbPort',] + [int(x, 16) for x in mac.split(":")])
         portID = self.snmp_get(oid)
 
+        if not portID:
+            return None
+
         port = Port(self, base_port=int(portID))
         return port
 
