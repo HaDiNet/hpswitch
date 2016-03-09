@@ -2,6 +2,7 @@
 import struct
 
 from pysnmp.proto import rfc1902
+
 import ipaddress
 
 from port import Port
@@ -262,3 +263,100 @@ class VLAN(object):
         Remove this VLAN as untagged from the Port `port`.
         """
         self._set_port_untagged_status(port, False)
+
+    def enable_igmp(self):
+        """
+	Enable IGMP
+        """
+	#.1.3.6.1.4.1.11.2.14.11.5.1.7.1.15.1.1.2.401 = INTEGER: enable(1)
+	#.1.3.6.1.4.1.11.2.14.11.5.1.7.1.15.1.1.2.402 = INTEGER: disable(2)
+
+	# TODO: Convert hpSwitchConfig.mib to pysnmp format
+	hpSwitchIgmpState = (1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 7, 1, 15, 1, 1, 2)
+
+	self.switch.snmp_set((hpSwitchIgmpState + (self.vid, ), rfc1902.Integer(1)))
+
+    def disable_igmp(self):
+	"""
+	Disable IGMP
+	"""
+
+	# TODO: Convert hpSwitchConfig.mib to pysnmp format
+        hpSwitchIgmpState = (1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 7, 1, 15, 1, 1, 2)
+
+	self.switch.snmp_set((hpSwitchIgmpState + (self.vid, ), rfc1902.Integer(2)))
+
+    def get_igmp_status(self):
+        """
+        Get status of igmp for this vlan.
+        """
+
+	# TODO: Convert hpSwitchConfig.mib to pysnmp format
+	hpSwitchIgmpState = (1, 3, 6, 1, 4, 1, 11, 2, 14, 11, 5, 1, 7, 1, 15, 1, 1, 2)
+
+	igmp_status = self.switch.snmp_get(hpSwitchIgmpState + (self.vid, ))
+	# 1 enabled, 2 disabled
+	return int(igmp_status) == 1
+
+    def enable_pim_sparse_mode(self):
+        """
+        Enable PIM sparse-mode
+        """
+
+	#TODO: rfc2934.mib should contain the needed oids, convert it to pysnmp format
+
+	#SNMPv2-SMI::experimental.61.1.1.2.1.7.978 = INTEGER: 4
+	#.1.3.6.1.3.61.1.1.2.1.7.978 = INTEGER: 4
+	#Syntax  INTEGER {active(1),notInService(2),notReady(3),createAndGo(4),createAndWait(5),destroy(6)}
+        pimInterfaceStatus = (1, 3, 6, 1, 3, 61, 1, 1, 2, 1, 7)
+
+	#SNMPv2-SMI::experimental.61.1.1.2.1.4.978 = INTEGER: 2
+	#.1.3.6.1.3.61.1.1.2.1.4.978 = INTEGER: 2
+        #Syntax  INTEGER {dense(1), sparse(2), sparseDense(3) }
+        pimInterfaceMode = (1, 3, 6, 1, 3, 61, 1, 1, 2, 1, 4)
+
+        pim_sparse_mode_enabled = self.get_pim_sparse_mode_status()
+
+        if not pim_sparse_mode_enabled:
+            self.switch.snmp_set(
+                (pimInterfaceStatus + (self.ifindex, ), rfc1902.Integer(4)),
+                (pimInterfaceMode + (self.ifindex, ), rfc1902.Integer(2))
+                )
+
+    def disable_pim_sparse_mode(self):
+        """
+        Disable PIM sparse-mode
+        """
+
+        #TODO: rfc2934.mib should contain the needed oids, convert it to pysnmp format
+
+        #SNMPv2-SMI::experimental.61.1.1.2.1.7.978 = INTEGER: 6
+        #.1.3.6.1.3.61.1.1.2.1.7.978 = INTEGER: 6
+	#Syntax  INTEGER {active(1),notInService(2),notReady(3),createAndGo(4),createAndWait(5),destroy(6)}
+        pimInterfaceStatus = (1, 3, 6, 1, 3, 61, 1, 1, 2, 1, 7)
+
+        pim_sparse_mode_enabled = self.get_pim_sparse_mode_status()
+
+        if pim_sparse_mode_enabled:
+          self.switch.snmp_set(
+                (pimInterfaceStatus + (self.ifindex, ), rfc1902.Integer(6)),
+                )
+
+    def get_pim_sparse_mode_status(self):
+        """
+        Get status of pim sparse mode for this vlan.
+        """
+
+        #SNMPv2-SMI::experimental.61.1.1.2.1.7.978 = INTEGER: 6
+        #.1.3.6.1.3.61.1.1.2.1.7.978 = INTEGER: 6
+	#Syntax  INTEGER {active(1),notInService(2),notReady(3),createAndGo(4),createAndWait(5),destroy(6)}
+        pimInterfaceStatus = (1, 3, 6, 1, 3, 61, 1, 1, 2, 1, 7)
+
+        pim_sparse_mode_status = self.switch.snmp_get(pimInterfaceStatus + (self.ifindex, ))
+        #status is 1 if enabled, noSuchInstance if disabled
+
+        from pysnmp.smi.exval import noSuchInstance
+        if pim_sparse_mode_status is noSuchInstance:
+            return False
+        else:
+            return True
